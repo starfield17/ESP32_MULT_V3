@@ -476,7 +476,11 @@ void State_Machine_run()
 /*******************************************/
 ThreadController controller = ThreadController();
 // 初始化
-
+void initializeThread(Thread& thread, void (*runFunction)(), int interval) {
+    thread.onRun(runFunction);
+    thread.setInterval(interval);
+    controller.add(&thread);
+}
 void setup()
 {
   Serial.begin(9600); // 确保波特率与串口监视器一致
@@ -531,18 +535,10 @@ void setup()
   // wait
   delay(1001);
   // init thread
-  State_Machine.onRun(State_Machine_run);
-  State_Machine.setInterval(40);
-  Display.onRun(display);
-  Display.setInterval(80);
-  SCAN.onRun(KEY_ENCODER);
-  SCAN.setInterval(100);
-  MOTOR_CONTROL.onRun(motor_control);
-  MOTOR_CONTROL.setInterval(50);
-  controller.add(&MOTOR_CONTROL);
-  controller.add(&Display);
-  controller.add(&SCAN);
-  controller.add(&State_Machine);
+initializeThread(State_Machine, State_Machine_run, 40);
+initializeThread(Display, display, 80);
+initializeThread(SCAN, KEY_ENCODER, 100);
+initializeThread(MOTOR_CONTROL, motor_control, 50);
 }
 // 多线程启动!
 void loop()
