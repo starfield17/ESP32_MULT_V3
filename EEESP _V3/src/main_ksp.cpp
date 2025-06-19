@@ -100,14 +100,9 @@ void motor_pwm_control()
   // 根据PID输出调整PWM值
   pwmValue1 = constrain(pidOutput, 0, 255);  // 加热丝PWM
   
-  // 风扇控制逻辑：温度越高，风扇转速越快
-  if (currentTemp > targetTemp + 2) {
-    pwmValue2 = 255;  // 全速
-  } else if (currentTemp > targetTemp) {
-    pwmValue2 = 128;  // 半速
-  } else {
-    pwmValue2 = 0;    // 停止
-  }
+  // 风扇与加热丝同步控制，确保空气循环
+  // 当加热时，风扇同步运转，促进热量均匀分布
+  pwmValue2 = pwmValue1;  // 风扇PWM与加热丝保持一致
   
   // 根据pwmValue (0-255) 计算高电平持续时间
   unsigned int onTime1_us = (pwmValue1 * pwmPeriod_us) / 255;
@@ -134,6 +129,7 @@ void motor_pwm_control()
     digitalWrite(BIN1, LOW);
   }
 }
+
 
 /*******************************************/
 // 菜单项
