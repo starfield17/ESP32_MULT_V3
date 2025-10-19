@@ -12,11 +12,11 @@
 #include <freertos/queue.h>
 #include <freertos/semphr.h>
 
-// 调试模式
+// Debug mode
 #define DEBUG 0
 #define MOTOR_ON 0
 
-// 引脚定义
+// Pin definitions
 #define S1 1
 #define S2 2
 #define BUTTON1 37
@@ -33,7 +33,7 @@
 #define INB2 7
 #define OLED_SCL 47
 #define OLED_SDA 21
-// 陀螺仪
+// Gyroscope
 #define MPU_INT 8
 #define MPU_SCL 17
 #define MPU_SDA 18
@@ -47,7 +47,7 @@
 #define CSN 11
 #define CE 12
 
-// FreeRTOS任务参数
+// FreeRTOS task parameters
 #define MOTOR_CONTROL_PRIORITY (tskIDLE_PRIORITY + 3)
 #define UI_PRIORITY (tskIDLE_PRIORITY + 2)
 #define INPUT_PRIORITY (tskIDLE_PRIORITY + 2)
@@ -60,15 +60,15 @@
 #define SENSOR_STACK_SIZE 2048
 #define SOUND_STACK_SIZE 1024
 
-// 前向声明
+// Forward declarations
 class MotorController;
 class InputHandler;
 class DisplayManager;
 class SensorManager;
 class MenuSystem;
 
-// ===== 状态定义 =====
-// 菜单系统状态
+// ===== State definitions =====
+// Menu system states
 enum class MenuState {
     MAIN_MENU = -1,
     SPEED_SETTING = 0,
@@ -76,7 +76,7 @@ enum class MenuState {
     PID_SETTING = 2
 };
 
-// PID调整子状态
+// PID adjustment sub-states
 enum class PIDState {
     NONE = 0,
     P_ADJUST = 1,
@@ -84,12 +84,12 @@ enum class PIDState {
     D_ADJUST = 3
 };
 
-// ===== 全局设备实例 =====
+// ===== Global device instances =====
 U8G2_SSD1306_128X64_NONAME_F_HW_I2C u8g2(U8G2_R0, U8X8_PIN_NONE, OLED_SCL, OLED_SDA);
 Adafruit_MPU6050 mpu;
 ezBuzzer buzzer(BEEP);
 
-// ===== 电机控制类 =====
+// ===== Motor control class =====
 class MotorController {
 private:
     ESP32Encoder motorEncoder1;
@@ -117,14 +117,14 @@ public:
     }
     
     void init() {
-        // 初始化编码器
+        // Initialize encoders
         ESP32Encoder::useInternalWeakPullResistors = UP;
         motorEncoder1.attachHalfQuad(INA1, INA2);
         motorEncoder1.clearCount();
         motorEncoder2.attachHalfQuad(INB1, INB2);
         motorEncoder2.clearCount();
         
-        // 初始化PWM
+        // Initialize PWM
         ledcSetup(0, pwmFrequency, 8); // AIN1
         ledcSetup(1, pwmFrequency, 8); // AIN2
         ledcSetup(2, pwmFrequency, 8); // BIN1
@@ -135,7 +135,7 @@ public:
         ledcAttachPin(BIN1, 2);
         ledcAttachPin(BIN2, 3);
         
-        // 初始化PID
+        // Initialize PID
         pid1.SetMode(AUTOMATIC);
         pid2.SetMode(AUTOMATIC);
     }
@@ -157,7 +157,7 @@ public:
         xSemaphoreGive(paramMutex);
     }
     
-    // 调整速度设置点
+    // Adjust speed setpoint
     void adjustSpeed(double delta) {
         xSemaphoreTake(paramMutex, portMAX_DELAY);
         setpoint1 += delta;
@@ -165,7 +165,7 @@ public:
         xSemaphoreGive(paramMutex);
     }
     
-    // 调整PID参数
+    // Adjust PID parameters
     void adjustP(double delta) {
         xSemaphoreTake(paramMutex, portMAX_DELAY);
         kp += delta;
@@ -190,7 +190,7 @@ public:
         xSemaphoreGive(paramMutex);
     }
     
-    // 获取当前值
+    // Get current values
     double getSetpoint1() {
         double value;
         xSemaphoreTake(paramMutex, portMAX_DELAY);
@@ -232,7 +232,7 @@ public:
     }
 };
 
-// ===== 输入处理类 =====
+// ===== Input handling class =====
 class InputHandler {
 private:
     ESP32Encoder encoder;
@@ -285,7 +285,7 @@ public:
         
         xSemaphoreTake(inputMutex, portMAX_DELAY);
         
-        // 检测按钮按下
+        // Detect button presses
         if (button1.wasReleased()) {
             state.b1Pressed = true;
         }
@@ -302,17 +302,17 @@ public:
             state.encPressed = true;
         }
         
-        // 检测编码器旋转
+        // Detect encoder rotation
         int64_t newPosition = encoder.getCount();
         if (newPosition > position) {
             state.rightTurn = true;
             #if DEBUG
-            Serial.println("顺时针");
+            Serial.println("Clockwise");
             #endif
         } else if (newPosition < position) {
             state.leftTurn = true;
             #if DEBUG
-            Serial.println("逆时针");
+            Serial.println("Counterclockwise");
             #endif
         }
         
@@ -321,7 +321,7 @@ public:
         xSemaphoreGive(inputMutex);
     }
     
-    // 获取并清除输入状态
+    // Get and clear input state
     bool getAndClearB1() {
         bool result;
         xSemaphoreTake(inputMutex, portMAX_DELAY);
@@ -377,7 +377,7 @@ public:
     }
 };
 
-// ===== 传感器管理类 =====
+// ===== Sensor management class =====
 class SensorManager {
 private:
     sensors_event_t accel;
@@ -392,7 +392,7 @@ public:
     
     bool init() {
         Wire1.begin(MPU_SDA, MPU_SCL);
-        Wire1.setClock(400000); // 设置I2C频率为400kHz
+        Wire1.setClock(400000); // Set I2C frequency to 400kHz
         
         if (!mpu.begin(0x68, &Wire1)) {
             Serial.println("Failed to find MPU6050 chip");
@@ -401,7 +401,7 @@ public:
         
         Serial.println("MPU6050 Found!");
         
-        mpu.setSampleRateDivisor(19); // 采样率 = 1kHz / (1 + 19) = 50Hz
+        mpu.setSampleRateDivisor(19); // Sample rate = 1kHz / (1 + 19) = 50Hz
         mpu.setFilterBandwidth(MPU6050_BAND_21_HZ);
         mpu.setAccelerometerRange(MPU6050_RANGE_8_G);
         mpu.setGyroRange(MPU6050_RANGE_500_DEG);
@@ -440,11 +440,11 @@ public:
     }
 };
 
-// ===== 蜂鸣器管理类 =====
+// ===== Buzzer management class =====
 class SoundManager {
 public:
     void init() {
-        // 蜂鸣器已在全局变量中初始化
+        // Buzzer already initialized in global variable
     }
     
     void beep(int duration) {
@@ -454,7 +454,7 @@ public:
     void update() {
         buzzer.loop();
         
-        // 处理串口命令
+        // Process serial commands
         if (Serial.available() > 0) {
             char incomingByte = Serial.read();
             if (incomingByte == '1') {
@@ -464,7 +464,7 @@ public:
     }
 };
 
-// ===== 菜单系统类 =====
+// ===== Menu system class =====
 class MenuSystem {
 private:
     struct MenuItem {
@@ -492,7 +492,7 @@ public:
         currentState(MenuState::MAIN_MENU),
         pidState(PIDState::NONE) {
         
-        // 初始化菜单环形链表
+        // Initialize menu circular linked list
         item0 = {0, &item1, &item2};
         item1 = {1, &item2, &item0};
         item2 = {2, &item0, &item1};
@@ -511,7 +511,7 @@ public:
         bool left = input.getAndClearLeft();
         bool right = input.getAndClearRight();
         
-        // 处理状态机转换和输入
+        // Handle state machine transitions and inputs
         switch (static_cast<int>(currentState)) {
             case static_cast<int>(MenuState::MAIN_MENU):
                 handleMainMenu(b1, b2, b3, enc, left, right);
@@ -533,7 +533,7 @@ public:
         xSemaphoreGive(menuMutex);
     }
     
-    // 绘制当前菜单状态
+    // Draw current menu state
     void draw() {
         u8g2.clearBuffer();
         
@@ -559,7 +559,7 @@ public:
     }
     
 private:
-    // 主菜单处理
+    // Main menu handling
     void handleMainMenu(bool b1, bool b2, bool b3, bool enc, bool left, bool right) {
         if (b1 || right) {
             currentItem = currentItem->next;
@@ -588,7 +588,7 @@ private:
         }
     }
     
-    // 速度设置处理
+    // Speed setting handling
     void handleSpeedSetting(bool b1, bool b2, bool b3, bool enc, bool left, bool right) {
         if (left) {
             motors.adjustSpeed(-50);
@@ -606,7 +606,7 @@ private:
         }
     }
     
-    // 陀螺仪显示处理
+    // Gyroscope view handling
     void handleGyroView(bool b1, bool b2, bool b3, bool enc, bool left, bool right) {
         if (enc) {
             currentState = MenuState::MAIN_MENU;
@@ -614,10 +614,10 @@ private:
         }
     }
     
-    // PID设置处理
+    // PID setting handling
     void handlePIDSetting(bool b1, bool b2, bool b3, bool enc, bool left, bool right) {
         if (static_cast<int>(pidState) == static_cast<int>(PIDState::NONE)) {
-            // 主PID菜单
+            // Main PID menu
             if (b1 || right) {
                 currentItem = currentItem->next;
                 u8g2.clearBuffer();
@@ -648,7 +648,7 @@ private:
                 u8g2.clearBuffer();
             }
         } else {
-            // PID参数调整
+            // PID parameter adjustment
             if (left) {
                 switch (static_cast<int>(pidState)) {
                     case static_cast<int>(PIDState::P_ADJUST):
@@ -686,7 +686,7 @@ private:
         }
     }
     
-    // 绘制主菜单
+    // Draw main menu
     void drawMainMenu() {
         u8g2.setFont(u8g2_font_ncenB08_tr);
         
@@ -696,7 +696,7 @@ private:
         u8g2.drawStr(20, 10 + 2 * 2 * u8g2.getFontAscent(), "set PID");
     }
     
-    // 绘制速度设置界面
+    // Draw speed setting interface
     void drawSpeedSetting() {
         u8g2.setFont(u8g2_font_ncenB08_tr);
         
@@ -708,7 +708,7 @@ private:
         u8g2.drawStr(30, 10 + 4 * u8g2.getFontAscent(), String(motors.getSetpoint2()).c_str());
     }
     
-    // 绘制陀螺仪数据
+    // Draw gyroscope data
     void drawGyroView() {
         u8g2.setFont(u8g2_font_ncenB08_tr);
         
@@ -721,7 +721,7 @@ private:
         u8g2.drawStr(40, 10 + 4 * u8g2.getFontAscent(), String(sensors.getGyroZ()).c_str());
     }
     
-    // 绘制PID设置界面
+    // Draw PID setting interface
     void drawPIDSetting() {
         u8g2.setFont(u8g2_font_ncenB08_tr);
         
@@ -739,7 +739,7 @@ private:
     }
 };
 
-// ===== 集成系统类 =====
+// ===== Integrated system class =====
 class RobotSystem {
 private:
     MotorController motors;
@@ -748,14 +748,14 @@ private:
     SoundManager sound;
     MenuSystem menu;
     
-    // FreeRTOS任务句柄
+    // FreeRTOS task handles
     TaskHandle_t motorTaskHandle;
     TaskHandle_t displayTaskHandle;
     TaskHandle_t inputTaskHandle;
     TaskHandle_t sensorTaskHandle;
     TaskHandle_t soundTaskHandle;
     
-    // 任务函数
+    // Task functions
     static void motorTask(void* parameter) {
         RobotSystem* system = (RobotSystem*)parameter;
         const TickType_t xDelay = pdMS_TO_TICKS(50);
@@ -813,7 +813,7 @@ public:
     void init() {
         Serial.begin(9600);
         
-        // 初始化各模块
+        // Initialize all modules
         input.init();
         motors.init();
         
@@ -824,7 +824,7 @@ public:
         sound.init();
         u8g2.begin();
         
-        // 创建FreeRTOS任务
+        // Create FreeRTOS tasks
         xTaskCreate(
             motorTask,
             "MotorTask",
@@ -872,7 +872,7 @@ public:
     }
 };
 
-// 全局系统实例
+// Global system instance
 RobotSystem robotSystem;
 
 void setup() {
@@ -880,6 +880,6 @@ void setup() {
 }
 
 void loop() {
-    // 空循环，所有功能都由FreeRTOS任务执行
+    // Empty loop, all functionality executed by FreeRTOS tasks
     vTaskDelay(1000 / portTICK_PERIOD_MS);
 }
