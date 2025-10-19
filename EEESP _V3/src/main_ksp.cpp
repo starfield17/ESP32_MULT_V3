@@ -15,17 +15,17 @@
 // DEBUG MODE
 #define DEBUG 0
 #define MOTOR_ON 0
-// 引脚定义
+// Pin definitions
 #define S1 1
 #define S2 2
 #define BUTTON1 37
 #define BUTTON2 36
 #define BUTTON3 35
 #define ENCODER_KEY 42
-// 【注意】电机引脚现在由软件PWM控制
-#define AIN1 39  // 加热丝控制
+// [Note] Motor pins are now controlled by software PWM
+#define AIN1 39  // Heating wire control
 #define AIN2 38
-#define BIN1 41  // 风扇控制
+#define BIN1 41  // Fan control
 #define BIN2 42
 #define INA1 4
 #define INA2 6
@@ -33,13 +33,13 @@
 #define INB2 7
 #define OLED_SCL 47
 #define OLED_SDA 21
-// DS18B20温度传感器定义
-#define DS18B20_DQ 45  // DS18B20数据引脚
-//陀螺仪
+// DS18B20 temperature sensor definition
+#define DS18B20_DQ 45  // DS18B20 data pin
+// Gyroscope
 #define MPU_INT 8
 #define MPU_SCL 17
 #define MPU_SDA 18
-//NRF
+// NRF
 #define SET 15
 #define BEEP 16
 #define IRQ 3
@@ -49,42 +49,42 @@
 #define CSN 11
 #define CE 12
 
-// 参数
+// Parameters
 /*******************************************/
 U8G2_SSD1306_128X64_NONAME_F_HW_I2C u8g2(U8G2_R0, /* reset=*/U8X8_PIN_NONE, /* clock=*/OLED_SCL, /* data=*/OLED_SDA);
 bool b1 = 0, b2 = 0, b3 = 0, e1 = 0, lt = 0, rt = 0;
 bool *pb1 = &b1, *pb2 = &b2, *pb3 = &b3, *pe1 = &e1, *plt = &lt, *prt = &rt;
-int pwmValue1 = 0;  // 加热丝PWM占空比 0-255 (0-100%)
-int pwmValue2 = 0;  // 风扇PWM占空比 0-255 (0-100%)
-sensors_event_t a, g, temp; // 陀螺仪
+int pwmValue1 = 0;  // Heating wire PWM duty cycle 0-255 (0-100%)
+int pwmValue2 = 0;  // Fan PWM duty cycle 0-255 (0-100%)
+sensors_event_t a, g, temp; // Gyroscope
 ezBuzzer buzzer(BEEP);
 
-// DS18B20温度传感器
+// DS18B20 temperature sensor
 OneWire oneWire(DS18B20_DQ);
 DallasTemperature sensors(&oneWire);
 
-// PID控制相关变量
-double currentTemp = 0;      // 当前温度
-double targetTemp = 25.0;    // 目标温度
-double pidOutput = 0;        // PID输出
-double Kp = 10, Ki = 0.5, Kd = 1;  // PID参数
+// PID control related variables
+double currentTemp = 0;      // Current temperature
+double targetTemp = 25.0;    // Target temperature
+double pidOutput = 0;        // PID output
+double Kp = 10, Ki = 0.5, Kd = 1;  // PID parameters
 PID myPID(&currentTemp, &pidOutput, &targetTemp, Kp, Ki, Kd, DIRECT);
 
-// 温度读取线程
+// Temperature reading thread
 Thread TEMP_READ = Thread();
 void temp_read_control()
 {
   sensors.requestTemperatures();
   currentTemp = sensors.getTempCByIndex(0);
   
-  // 检查温度读取是否有效
+  // Check if temperature reading is valid
   if (currentTemp == DEVICE_DISCONNECTED_C) {
     currentTemp = 0;
   }
 }
 
 /*******************************************/
-// 【修改】电机软件PWM控制线程，加入PID控制
+// [Modified] Motor software PWM control thread, added PID control
 Thread MOTOR_PWM = Thread();
 ESP32Encoder Motorencoder1;
 ESP32Encoder Motorencoder2;
@@ -94,35 +94,35 @@ void motor_pwm_control()
   static unsigned long lastMicros = 0;
   const int pwmPeriod_us = 2040; // ~490Hz
   
-  // PID计算
+  // PID calculation
   myPID.Compute();
   
-  // 根据PID输出调整PWM值
-  pwmValue1 = constrain(pidOutput, 0, 255);  // 加热丝PWM
+  // Adjust PWM value based on PID output
+  pwmValue1 = constrain(pidOutput, 0, 255);  // Heating wire PWM
   
-  // 风扇与加热丝同步控制，确保空气循环
-  // 当加热时，风扇同步运转，促进热量均匀分布
-  pwmValue2 = pwmValue1;  // 风扇PWM与加热丝保持一致
+  // Fan synchronized control with heating wire to ensure air circulation
+  // When heating, fan runs simultaneously to promote uniform heat distribution
+  pwmValue2 = pwmValue1;  // Fan PWM consistent with heating wire
   
-  // 根据pwmValue (0-255) 计算高电平持续时间
+  // Calculate high level duration based on pwmValue (0-255)
   unsigned int onTime1_us = (pwmValue1 * pwmPeriod_us) / 255;
   unsigned int onTime2_us = (pwmValue2 * pwmPeriod_us) / 255;
   
   unsigned long currentMicros = micros();
   
-  // 周期结束，重置计时器
+  // Period ends, reset timer
   if (currentMicros - lastMicros >= pwmPeriod_us) {
     lastMicros = currentMicros;
   }
   
-  // 根据占空比设置加热丝的引脚状态
+  // Set heating wire pin state based on duty cycle
   if (currentMicros - lastMicros < onTime1_us) {
     digitalWrite(AIN1, HIGH);
   } else {
     digitalWrite(AIN1, LOW);
   }
   
-  // 根据占空比设置风扇的引脚状态
+  // Set fan pin state based on duty cycle
   if (currentMicros - lastMicros < onTime2_us) {
     digitalWrite(BIN1, HIGH);
   } else {
@@ -132,7 +132,7 @@ void motor_pwm_control()
 
 
 /*******************************************/
-// 菜单项
+// Menu items
 struct Circle
 {
   int number;
@@ -158,7 +158,7 @@ Circle *CurrentPointer = &pointer0;
 int Flag = -1, Set = 0;
 
 /*******************************************/
-// 编码器_按钮线程
+// Encoder_Button thread
 /*******************************************/
 Thread SCAN = Thread();
 ESP32Encoder encoder;
@@ -191,19 +191,19 @@ void KEY_ENCODER()
   {
     *pe1 = true;
   }
-  newPosition = encoder.getCount(); // 读取编码器的位置
+  newPosition = encoder.getCount(); // Read encoder position
   if (newPosition > position)
   {
     *prt = true;
 #if DEBUG
-    Serial.println("顺时针");
+    Serial.println("Clockwise");
 #endif
   }
   else if (newPosition < position)
   {
     *plt = true;
 #if DEBUG
-    Serial.println("逆时针");
+    Serial.println("Counterclockwise");
 #endif
   }
   position_old = position;
@@ -211,7 +211,7 @@ void KEY_ENCODER()
 }
 /*******************************************/
 
-// 显示器线程
+// Display thread
 /*******************************************/
 Thread Display = Thread();
 void display()
@@ -243,11 +243,11 @@ void display()
       u8g2.clearBuffer();
     }
     u8g2.drawStr(0, 10 + 2 * CurrentPointer->number * u8g2.getFontAscent(), ">>");
-    u8g2.setFont(u8g2_font_ncenB08_tr); // 设置字体
+    u8g2.setFont(u8g2_font_ncenB08_tr); // Set font
     u8g2.drawStr(20, 10 + 2 * 0 * u8g2.getFontAscent(), "set PWM");
     u8g2.drawStr(20, 10 + 2 * 1 * u8g2.getFontAscent(), "LOOK XYZ");
-    u8g2.drawStr(20, 10 + 2 * 2 * u8g2.getFontAscent(), "Temp Control");  // 温度控制
-    u8g2.sendBuffer(); // 将缓冲区内容发送到显示屏
+    u8g2.drawStr(20, 10 + 2 * 2 * u8g2.getFontAscent(), "Temp Control");  // Temperature control
+    u8g2.sendBuffer(); // Send buffer content to display
     switch (CurrentPointer->number)
     {
       break;
@@ -288,7 +288,7 @@ void display()
     {
       u8g2.clearBuffer();
       lt = !lt;
-      pwmValue1 -= 5;  // 每次减少约2%
+      pwmValue1 -= 5;  // Decrease about 2% each time
       pwmValue2 -= 5;
       if(pwmValue1 < 0) pwmValue1 = 0;
       if(pwmValue2 < 0) pwmValue2 = 0;
@@ -297,7 +297,7 @@ void display()
     {
       u8g2.clearBuffer();
       rt = !rt;
-      pwmValue1 += 5;  // 每次增加约2%
+      pwmValue1 += 5;  // Increase about 2% each time
       pwmValue2 += 5;
       if(pwmValue1 > 255) pwmValue1 = 255;
       if(pwmValue2 > 255) pwmValue2 = 255;
@@ -309,17 +309,17 @@ void display()
       u8g2.clearBuffer();
       u8g2.sendBuffer();
     }
-    u8g2.setFont(u8g2_font_ncenB08_tr); // 设置字体
+    u8g2.setFont(u8g2_font_ncenB08_tr); // Set font
     u8g2.drawStr(0, 10 + 0 * 1 * u8g2.getFontAscent(), "CHANGE_PWM_DUTY");
     u8g2.drawStr(0, 10 + 1 * 2 * u8g2.getFontAscent(), "PWM1=");
     u8g2.drawStr(0, 10 + 2 * 2 * u8g2.getFontAscent(), "PWM2=");
     
-    // 显示百分比
+    // Display percentage
     int percent1 = (pwmValue1 * 100) / 255;
     int percent2 = (pwmValue2 * 100) / 255;
     u8g2.drawStr(50, 10 + 1 * 2 * u8g2.getFontAscent(), (String(percent1) + "%").c_str());
     u8g2.drawStr(50, 10 + 2 * 2 * u8g2.getFontAscent(), (String(percent2) + "%").c_str());
-    u8g2.sendBuffer(); // 将缓冲区内容发送到显示屏
+    u8g2.sendBuffer(); // Send buffer content to display
   }
   if (Flag == 1)
   {
@@ -347,23 +347,23 @@ void display()
     u8g2.drawStr(20, 10 + 2 * 0 * u8g2.getFontAscent(), "X=");
     u8g2.drawStr(20, 10 + 2 * 1 * u8g2.getFontAscent(), "Y=");
     u8g2.drawStr(20, 10 + 2 * 2 * u8g2.getFontAscent(), "Z=");
-    u8g2.sendBuffer(); // 将缓冲区内容发送到显示屏
+    u8g2.sendBuffer(); // Send buffer content to display
   }
   if (Flag == 2)
   {
-    // 温度控制界面
+    // Temperature control interface
     if (*plt)
     {
       u8g2.clearBuffer();
       lt = !lt;
-      targetTemp -= 0.5;  // 每次减少0.5度
+      targetTemp -= 0.5;  // Decrease 0.5 degrees each time
       if(targetTemp < 0) targetTemp = 0;
     }
     else if (*prt)
     {
       u8g2.clearBuffer();
       rt = !rt;
-      targetTemp += 0.5;  // 每次增加0.5度
+      targetTemp += 0.5;  // Increase 0.5 degrees each time
       if(targetTemp > 100) targetTemp = 100;
     }
     if (*pe1)
@@ -377,20 +377,20 @@ void display()
     u8g2.setFont(u8g2_font_ncenB08_tr);
     u8g2.drawStr(10, 10, "Temperature Control");
     
-    // 显示当前温度
+    // Display current temperature
     char tempStr[20];
     dtostrf(currentTemp, 4, 1, tempStr);
     u8g2.drawStr(10, 25, "Current: ");
     u8g2.drawStr(70, 25, tempStr);
     u8g2.drawStr(100, 25, "C");
     
-    // 显示目标温度
+    // Display target temperature
     dtostrf(targetTemp, 4, 1, tempStr);
     u8g2.drawStr(10, 40, "Target: ");
     u8g2.drawStr(70, 40, tempStr);
     u8g2.drawStr(100, 40, "C");
     
-    // 显示加热器和风扇状态
+    // Display heater and fan status
     int heaterPercent = (pwmValue1 * 100) / 255;
     int fanPercent = (pwmValue2 * 100) / 255;
     u8g2.drawStr(10, 55, "Heat:");
@@ -410,7 +410,7 @@ void State_Machine_run()
 {
   Serial.print("1");
   char incomingByte = Serial.read();
-  if (incomingByte =='1') { // 检查读取的数据是否有效
+  if (incomingByte =='1') { // Check if read data is valid
   buzzer.beep(500);
   }
   mpu.getEvent(&a, &g, &temp);
@@ -418,7 +418,7 @@ void State_Machine_run()
 }
 /*******************************************/
 ThreadController controller = ThreadController();
-// 初始化
+// Initialization
 void initializeThread(Thread& thread, void (*runFunction)(), int interval) {
     thread.onRun(runFunction);
     thread.setInterval(interval);
@@ -426,30 +426,30 @@ void initializeThread(Thread& thread, void (*runFunction)(), int interval) {
 }
 void setup()
 {
-  Serial.begin(9600); // 确保波特率与串口监视器一致
+  Serial.begin(9600); // Ensure baud rate matches serial monitor
   
-  // 初始化DS18B20
+  // Initialize DS18B20
   sensors.begin();
-  sensors.setResolution(12);  // 设置12位分辨率
+  sensors.setResolution(12);  // Set 12-bit resolution
   
-  // 初始化PID
+  // Initialize PID
   myPID.SetMode(AUTOMATIC);
-  myPID.SetOutputLimits(0, 255);  // PWM范围
-  myPID.SetSampleTime(1000);      // 1秒采样时间
+  myPID.SetOutputLimits(0, 255);  // PWM range
+  myPID.SetSampleTime(1000);      // 1 second sample time
   
-  // 【新增】初始化电机引脚为输出模式
+  // [New] Initialize motor pins as output mode
   pinMode(AIN1, OUTPUT);
   pinMode(AIN2, OUTPUT);
   pinMode(BIN1, OUTPUT);
   pinMode(BIN2, OUTPUT);
-  // 设置电机方向，AIN2和BIN2保持低电平，通过AIN1和BIN1的PWM信号控制速度
+  // Set motor direction, keep AIN2 and BIN2 low, control speed through AIN1 and BIN1 PWM signals
   digitalWrite(AIN2, LOW);
   digitalWrite(BIN2, LOW);
 
   // init buttons
   Wire1.begin(MPU_SDA, MPU_SCL);
   Wire1.setClock(400000);
-  // 初始化MPU6050
+  // Initialize MPU6050
   if (!mpu.begin(0x68, &Wire1)) {
     Serial.println("Failed to find MPU6050 chip");
     while (1) {
@@ -480,7 +480,7 @@ void setup()
   Motorencoder2.attachHalfQuad(INB1, INB2);
   Motorencoder2.clearCount();
   
-  // 初始化PWM值
+  // Initialize PWM values
   pwmValue1 = 0;
   pwmValue2 = 0;
   
@@ -496,7 +496,7 @@ void setup()
   initializeThread(Display, display, 80);
   initializeThread(SCAN, KEY_ENCODER, 100);
   initializeThread(MOTOR_PWM, motor_pwm_control, 0);
-  initializeThread(TEMP_READ, temp_read_control, 1000);  // 每秒读取一次温度
+  initializeThread(TEMP_READ, temp_read_control, 1000);  // Read temperature once per second
 }
 
 void loop()
