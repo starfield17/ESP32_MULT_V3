@@ -12,14 +12,14 @@
 // DEBUG MODE
 #define DEBUG 0
 #define MOTOR_ON 0
-// 引脚定义
+// Pin definitions
 #define S1 1
 #define S2 2
 #define BUTTON1 37
 #define BUTTON2 36
 #define BUTTON3 35
 #define ENCODER_KEY 42
-// 【注意】电机引脚现在由软件PWM控制
+// 【Note】Motor pins are now controlled by software PWM
 #define AIN1 39
 #define AIN2 38
 #define BIN1 41
@@ -30,14 +30,14 @@
 #define INB2 7
 #define OLED_SCL 47
 #define OLED_SDA 21
-// LED定义
+// LED definitions
 #define LED1 45
 #define LED_GND 48
-//陀螺仪
+// Gyroscope
 #define MPU_INT 8
 #define MPU_SCL 17
 #define MPU_SDA 18
-//NRF
+// NRF
 #define SET 15
 #define BEEP 16
 #define IRQ 3
@@ -46,18 +46,18 @@
 #define SCK 10
 #define CSN 11
 #define CE 12
-// 参数
+// Parameters
 /*******************************************/
 U8G2_SSD1306_128X64_NONAME_F_HW_I2C u8g2(U8G2_R0, /* reset=*/U8X8_PIN_NONE, /* clock=*/OLED_SCL, /* data=*/OLED_SDA);
 bool b1 = 0, b2 = 0, b3 = 0, e1 = 0, lt = 0, rt = 0;
 bool *pb1 = &b1, *pb2 = &b2, *pb3 = &b3, *pe1 = &e1, *plt = &lt, *prt = &rt;
-int pwmValue1 = 0;  // PWM占空比 0-255 (0-100%)
-int pwmValue2 = 0;  // PWM占空比 0-255 (0-100%)
-int ledBrightness = 0;  // LED亮度 0-100%
-sensors_event_t a, g, temp; // 陀螺仪
+int pwmValue1 = 0;  // PWM duty cycle 0-255 (0-100%)
+int pwmValue2 = 0;  // PWM duty cycle 0-255 (0-100%)
+int ledBrightness = 0;  // LED brightness 0-100%
+sensors_event_t a, g, temp; // Gyroscope
 ezBuzzer buzzer(BEEP);
 
-// LED软件PWM线程
+// LED software PWM thread
 Thread LED_PWM = Thread();
 void led_pwm_control()
 {
@@ -79,7 +79,7 @@ void led_pwm_control()
 }
 
 /*******************************************/
-// 【新增】电机软件PWM控制线程
+// 【New】Motor software PWM control thread
 Thread MOTOR_PWM = Thread();
 ESP32Encoder Motorencoder1;
 ESP32Encoder Motorencoder2;
@@ -87,27 +87,27 @@ ESP32Encoder Motorencoder2;
 void motor_pwm_control()
 {
   static unsigned long lastMicros = 0;
-  const int pwmPeriod_us = 2040; // ~490Hz, 与LED频率保持一致
+  const int pwmPeriod_us = 2040; // ~490Hz, consistent with LED frequency
 
-  // 根据pwmValue (0-255) 计算高电平持续时间
+  // Calculate high-level duration based on pwmValue (0-255)
   unsigned int onTime1_us = (pwmValue1 * pwmPeriod_us) / 255;
   unsigned int onTime2_us = (pwmValue2 * pwmPeriod_us) / 255;
 
   unsigned long currentMicros = micros();
 
-  // 周期结束，重置计时器
+  // Period ends, reset timer
   if (currentMicros - lastMicros >= pwmPeriod_us) {
     lastMicros = currentMicros;
   }
 
-  // 根据占空比设置电机1的引脚状态
+  // Set motor 1 pin state based on duty cycle
   if (currentMicros - lastMicros < onTime1_us) {
     digitalWrite(AIN1, HIGH);
   } else {
     digitalWrite(AIN1, LOW);
   }
 
-  // 根据占空比设置电机2的引脚状态
+  // Set motor 2 pin state based on duty cycle
   if (currentMicros - lastMicros < onTime2_us) {
     digitalWrite(BIN1, HIGH);
   } else {
@@ -115,7 +115,7 @@ void motor_pwm_control()
   }
 }
 /*******************************************/
-// 菜单项
+// Menu items
 struct Circle
 {
   int number;
@@ -141,7 +141,7 @@ Circle *CurrentPointer = &pointer0;
 int Flag = -1, Set = 0;
 
 /*******************************************/
-// 编码器_按钮线程
+// Encoder_button thread
 /*******************************************/
 Thread SCAN = Thread();
 ESP32Encoder encoder;
@@ -174,19 +174,19 @@ void KEY_ENCODER()
   {
     *pe1 = true;
   }
-  newPosition = encoder.getCount(); // 读取编码器的位置
+  newPosition = encoder.getCount(); // Read encoder position
   if (newPosition > position)
   {
     *prt = true;
 #if DEBUG
-    Serial.println("顺时针");
+    Serial.println("Clockwise");
 #endif
   }
   else if (newPosition < position)
   {
     *plt = true;
 #if DEBUG
-    Serial.println("逆时针");
+    Serial.println("Counterclockwise");
 #endif
   }
   position_old = position;
@@ -194,7 +194,7 @@ void KEY_ENCODER()
 }
 /*******************************************/
 
-// 显示器线程
+// Display thread
 /*******************************************/
 Thread Display = Thread();
 void display()
@@ -226,11 +226,11 @@ void display()
       u8g2.clearBuffer();
     }
     u8g2.drawStr(0, 10 + 2 * CurrentPointer->number * u8g2.getFontAscent(), ">>");
-    u8g2.setFont(u8g2_font_ncenB08_tr); // 设置字体
+    u8g2.setFont(u8g2_font_ncenB08_tr); // Set font
     u8g2.drawStr(20, 10 + 2 * 0 * u8g2.getFontAscent(), "set PWM");
     u8g2.drawStr(20, 10 + 2 * 1 * u8g2.getFontAscent(), "LOOK XYZ");
-    u8g2.drawStr(20, 10 + 2 * 2 * u8g2.getFontAscent(), "LED Brightness");  // LED亮度控制
-    u8g2.sendBuffer(); // 将缓冲区内容发送到显示屏
+    u8g2.drawStr(20, 10 + 2 * 2 * u8g2.getFontAscent(), "LED Brightness");  // LED brightness control
+    u8g2.sendBuffer(); // Send buffer content to display
     switch (CurrentPointer->number)
     {
       break;
@@ -271,7 +271,7 @@ void display()
     {
       u8g2.clearBuffer();
       lt = !lt;
-      pwmValue1 -= 5;  // 每次减少约2%
+      pwmValue1 -= 5;  // Decrease by about 2% each time
       pwmValue2 -= 5;
       if(pwmValue1 < 0) pwmValue1 = 0;
       if(pwmValue2 < 0) pwmValue2 = 0;
@@ -280,7 +280,7 @@ void display()
     {
       u8g2.clearBuffer();
       rt = !rt;
-      pwmValue1 += 5;  // 每次增加约2%
+      pwmValue1 += 5;  // Increase by about 2% each time
       pwmValue2 += 5;
       if(pwmValue1 > 255) pwmValue1 = 255;
       if(pwmValue2 > 255) pwmValue2 = 255;
@@ -292,17 +292,17 @@ void display()
       u8g2.clearBuffer();
       u8g2.sendBuffer();
     }
-    u8g2.setFont(u8g2_font_ncenB08_tr); // 设置字体
+    u8g2.setFont(u8g2_font_ncenB08_tr); // Set font
     u8g2.drawStr(0, 10 + 0 * 1 * u8g2.getFontAscent(), "CHANGE_PWM_DUTY");
     u8g2.drawStr(0, 10 + 1 * 2 * u8g2.getFontAscent(), "PWM1=");
     u8g2.drawStr(0, 10 + 2 * 2 * u8g2.getFontAscent(), "PWM2=");
     
-    // 显示百分比
+    // Display percentage
     int percent1 = (pwmValue1 * 100) / 255;
     int percent2 = (pwmValue2 * 100) / 255;
     u8g2.drawStr(50, 10 + 1 * 2 * u8g2.getFontAscent(), (String(percent1) + "%").c_str());
     u8g2.drawStr(50, 10 + 2 * 2 * u8g2.getFontAscent(), (String(percent2) + "%").c_str());
-    u8g2.sendBuffer(); // 将缓冲区内容发送到显示屏
+    u8g2.sendBuffer(); // Send buffer content to display
   }
   if (Flag == 1)
   {
@@ -330,23 +330,23 @@ void display()
     u8g2.drawStr(20, 10 + 2 * 0 * u8g2.getFontAscent(), "X=");
     u8g2.drawStr(20, 10 + 2 * 1 * u8g2.getFontAscent(), "Y=");
     u8g2.drawStr(20, 10 + 2 * 2 * u8g2.getFontAscent(), "Z=");
-    u8g2.sendBuffer(); // 将缓冲区内容发送到显示屏
+    u8g2.sendBuffer(); // Send buffer content to display
   }
   if (Flag == 2)
   {
-    // LED亮度控制
+    // LED brightness control
     if (*plt)
     {
       u8g2.clearBuffer();
       lt = !lt;
-      ledBrightness -= 5;  // 每次减少5%
+      ledBrightness -= 5;  // Decrease by 5% each time
       if(ledBrightness < 0) ledBrightness = 0;
     }
     else if (*prt)
     {
       u8g2.clearBuffer();
       rt = !rt;
-      ledBrightness += 5;  // 每次增加5%
+      ledBrightness += 5;  // Increase by 5% each time
       if(ledBrightness > 100) ledBrightness = 100;
     }
     if (*pe1)
@@ -362,7 +362,7 @@ void display()
     u8g2.drawStr(10, 10 + 2 * 2 * u8g2.getFontAscent(), "Value: ");
     u8g2.drawStr(70, 10 + 2 * 2 * u8g2.getFontAscent(), (String(ledBrightness) + "%").c_str());
     
-    // 绘制进度条
+    // Draw progress bar
     int barWidth = 100;
     int barHeight = 10;
     int barX = 14;
@@ -383,7 +383,7 @@ void State_Machine_run()
 {
   Serial.print("1");
   char incomingByte = Serial.read();
-  if (incomingByte =='1') { // 检查读取的数据是否有效
+  if (incomingByte =='1') { // Check if read data is valid
   buzzer.beep(500);
   }
   mpu.getEvent(&a, &g, &temp);
@@ -391,7 +391,7 @@ void State_Machine_run()
 }
 /*******************************************/
 ThreadController controller = ThreadController();
-// 初始化
+// Initialization
 void initializeThread(Thread& thread, void (*runFunction)(), int interval) {
     thread.onRun(runFunction);
     thread.setInterval(interval);
@@ -399,27 +399,27 @@ void initializeThread(Thread& thread, void (*runFunction)(), int interval) {
 }
 void setup()
 {
-  Serial.begin(9600); // 确保波特率与串口监视器一致
+  Serial.begin(9600); // Ensure baud rate matches serial monitor
   
-  // 初始化LED引脚
+  // Initialize LED pins
   pinMode(LED1, OUTPUT);
   pinMode(LED_GND, OUTPUT);
   digitalWrite(LED_GND, LOW);
   digitalWrite(LED1, LOW);
   
-  // 【新增】初始化电机引脚为输出模式
+  // 【New】Initialize motor pins as output mode
   pinMode(AIN1, OUTPUT);
   pinMode(AIN2, OUTPUT);
   pinMode(BIN1, OUTPUT);
   pinMode(BIN2, OUTPUT);
-  // 设置电机方向，AIN2和BIN2保持低电平，通过AIN1和BIN1的PWM信号控制速度
+  // Set motor direction, AIN2 and BIN2 remain low, control speed through AIN1 and BIN1 PWM signals
   digitalWrite(AIN2, LOW);
   digitalWrite(BIN2, LOW);
 
   // init buttons
   Wire1.begin(MPU_SDA, MPU_SCL);
   Wire1.setClock(400000);
-  // 初始化MPU6050
+  // Initialize MPU6050
   if (!mpu.begin(0x68, &Wire1)) {
     Serial.println("Failed to find MPU6050 chip");
     while (1) {
@@ -450,13 +450,13 @@ void setup()
   Motorencoder2.attachHalfQuad(INB1, INB2);
   Motorencoder2.clearCount();
   
-  // 【移除】硬件PWM初始化代码，因为现在使用软件PWM
+  // 【Removed】Hardware PWM initialization code, now using software PWM
   // ledcSetup(AIN1, pwmFrequency, 8);
   // ledcSetup(AIN2, pwmFrequency, 8);
   // ledcSetup(BIN1, pwmFrequency, 8);
   // ledcSetup(BIN2, pwmFrequency, 8);
   
-  // 初始化PWM值
+  // Initialize PWM values
   pwmValue1 = 0;
   pwmValue2 = 0;
   ledBrightness = 0;
@@ -472,7 +472,7 @@ void setup()
   initializeThread(State_Machine, State_Machine_run, 40);
   initializeThread(Display, display, 80);
   initializeThread(SCAN, KEY_ENCODER, 100);
-  // 【更新】使用新的电机软件PWM线程
+  // 【Updated】Use new motor software PWM thread
   initializeThread(MOTOR_PWM, motor_pwm_control, 0);
   initializeThread(LED_PWM, led_pwm_control, 0);
 }
