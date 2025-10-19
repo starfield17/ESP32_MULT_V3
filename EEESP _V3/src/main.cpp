@@ -13,7 +13,7 @@
 // DEBUG MODE
 #define DEBUG 0
 #define MOTOR_ON 0
-// 引脚定义
+// Pin definitions
 #define S1 1
 #define S2 2
 #define BUTTON1 37
@@ -30,7 +30,7 @@
 #define INB2 7
 #define OLED_SCL 47
 #define OLED_SDA 21
-//陀螺仪
+//Gyroscope
 #define MPU_INT 8
 #define MPU_SCL 17
 #define MPU_SDA 18
@@ -43,7 +43,7 @@
 #define SCK 10
 #define CSN 11
 #define CE 12
-// 参数
+// Parameters
 /*******************************************/
 U8G2_SSD1306_128X64_NONAME_F_HW_I2C u8g2(U8G2_R0, /* reset=*/U8X8_PIN_NONE, /* clock=*/OLED_SCL, /* data=*/OLED_SDA);
 bool b1 = 0, b2 = 0, b3 = 0, e1 = 0, lt = 0, rt = 0;
@@ -52,14 +52,14 @@ double Setpoint1, Input1, Output1;
 double Setpoint2, Input2, Output2;
 double Kp = 2.0, Ki = 5.0, Kd = 1.0;
 int pwmFrequency = 1000;
-  sensors_event_t a, g, temp; // 陀螺仪
+  sensors_event_t a, g, temp; // Gyroscope
 ezBuzzer buzzer(BEEP);
 /*******************************************/
-// pid电机控制线程
+// pid motor control thread
 Thread MOTOR_CONTROL = Thread();
 ESP32Encoder Motorencoder1;
 ESP32Encoder Motorencoder2;
-// 创建PID对象
+// Create PID objects
 PID myPID1(&Input1, &Output1, &Setpoint1, Kp, Ki, Kd, DIRECT);
 PID myPID2(&Input2, &Output2, &Setpoint2, Kp, Ki, Kd, DIRECT);
 void motor_control()
@@ -67,15 +67,15 @@ void motor_control()
 
   Input1 = Motorencoder1.getCount();
   Input2 = Motorencoder2.getCount();
-  // 计算 PID 输出
+  // Calculate PID output
   myPID1.Compute();
   myPID2.Compute();
-  // 控制电机速度
+  // Control motor speed
   ledcWrite(AIN1, Output1);
   ledcWrite(BIN1, Output2);
 }
 /*******************************************/
-// 菜单项
+// Menu items
 struct Circle
 {
   int number;
@@ -103,7 +103,7 @@ int Flag = -1, Set = 0;
 
 
 /*******************************************/
-// 编码器_按钮线程
+// Encoder_Button thread
 /*******************************************/
 Thread SCAN = Thread();
 ESP32Encoder encoder;
@@ -136,19 +136,19 @@ void KEY_ENCODER()
   {
     *pe1 = true;
   }
-  newPosition = encoder.getCount(); // 读取编码器的位置
+  newPosition = encoder.getCount(); // Read the encoder position
   if (newPosition > position)
   {
     *prt = true;
 #if DEBUG
-    Serial.println("顺时针");
+    Serial.println("Clockwise");
 #endif
   }
   else if (newPosition < position)
   {
     *plt = true;
 #if DEBUG
-    Serial.println("逆时针");
+    Serial.println("Counter-clockwise");
 #endif
   }
   position_old = position;
@@ -156,7 +156,7 @@ void KEY_ENCODER()
 }
 /*******************************************/
 
-// 显示器线程
+// Display thread
 /*******************************************/
 Thread Display = Thread();
 void display()
@@ -193,11 +193,11 @@ void display()
      // Serial.println("P-");
     }
     u8g2.drawStr(0, 10 + 2 * CurrentPointer->number * u8g2.getFontAscent(), ">>");
-    u8g2.setFont(u8g2_font_ncenB08_tr); // 设置字体
+    u8g2.setFont(u8g2_font_ncenB08_tr); // Set font
     u8g2.drawStr(20, 10 + 2 * 0 * u8g2.getFontAscent(), "set Speed");
     u8g2.drawStr(20, 10 + 2 * 1 * u8g2.getFontAscent(), "LOOK XYZ");
     u8g2.drawStr(20, 10 + 2 * 2 * u8g2.getFontAscent(), "set PID");
-    u8g2.sendBuffer(); // 将缓冲区内容发送到显示屏
+    u8g2.sendBuffer(); // Send buffer content to display
     switch (CurrentPointer->number)
     {
       break;
@@ -260,14 +260,14 @@ void display()
       u8g2.clearBuffer();
       u8g2.sendBuffer();
     }
-    u8g2.setFont(u8g2_font_ncenB08_tr); // 设置字体
+    u8g2.setFont(u8g2_font_ncenB08_tr); // Set font
     //Serial.println("F=0");
     u8g2.drawStr(0, 10 + 0 * 1 * u8g2.getFontAscent(), "CHANGE_the_Speed");
     u8g2.drawStr(0, 10 + 1 * 2 * u8g2.getFontAscent(), "S1=");
     u8g2.drawStr(0, 10 + 2 * 2 * u8g2.getFontAscent(), "S2=");
     u8g2.drawStr(30, 10 + 1 * 2 * u8g2.getFontAscent(), String(Setpoint1).c_str());
     u8g2.drawStr(30, 10 + 2 * 2 * u8g2.getFontAscent(), String(Setpoint2).c_str());
-    u8g2.sendBuffer(); // 将缓冲区内容发送到显示屏
+    u8g2.sendBuffer(); // Send buffer content to display
   }
   if (Flag == 1)
   {
@@ -298,7 +298,7 @@ void display()
     u8g2.drawStr(20, 10 + 2 * 0 * u8g2.getFontAscent(), "X=");
     u8g2.drawStr(20, 10 + 2 * 1 * u8g2.getFontAscent(), "Y=");
     u8g2.drawStr(20, 10 + 2 * 2 * u8g2.getFontAscent(), "Z=");
-    u8g2.sendBuffer(); // 将缓冲区内容发送到显示屏
+    u8g2.sendBuffer(); // Send buffer content to display
   }
   if (Flag == 2)
   {
@@ -438,14 +438,14 @@ void display()
     }
 
     u8g2.drawStr(0, 10 + 2 * CurrentPointer->number * u8g2.getFontAscent(), ">>");
-    u8g2.setFont(u8g2_font_ncenB08_tr); // 设置字体
+    u8g2.setFont(u8g2_font_ncenB08_tr); // Set font
     u8g2.drawStr(40, 10 + 0 * 2 * u8g2.getFontAscent(), String(Kp).c_str());
     u8g2.drawStr(40, 10 + 1 * 2 * u8g2.getFontAscent(), String(Ki).c_str());
     u8g2.drawStr(40, 10 + 2 * 2 * u8g2.getFontAscent(), String(Kd).c_str());
     u8g2.drawStr(20, 10 + 2 * 0 * u8g2.getFontAscent(), "P=");
     u8g2.drawStr(20, 10 + 2 * 1 * u8g2.getFontAscent(), "I=");
     u8g2.drawStr(20, 10 + 2 * 2 * u8g2.getFontAscent(), "D=");
-    u8g2.sendBuffer(); // 将缓冲区内容发送到显示屏
+    u8g2.sendBuffer(); // Send buffer content to display
     myPID1.SetTunings(Kp, Ki, Kd);
     myPID2.SetTunings(Kp, Ki, Kd);
   }
@@ -459,7 +459,7 @@ void State_Machine_run()
 {
   Serial.print("1");
   char incomingByte = Serial.read();
-  if (incomingByte =='1') { // 检查读取的数据是否有效
+  if (incomingByte =='1') { // Check if the read data is valid
   buzzer.beep(500);
   }
   mpu.getEvent(&a, &g, &temp);
@@ -475,7 +475,7 @@ void State_Machine_run()
 }
 /*******************************************/
 ThreadController controller = ThreadController();
-// 初始化
+// Initialization
 void initializeThread(Thread& thread, void (*runFunction)(), int interval) {
     thread.onRun(runFunction);
     thread.setInterval(interval);
@@ -483,11 +483,11 @@ void initializeThread(Thread& thread, void (*runFunction)(), int interval) {
 }
 void setup()
 {
-  Serial.begin(9600); // 确保波特率与串口监视器一致
+  Serial.begin(9600); // Ensure baud rate matches the serial monitor
   // init buttons
   Wire1.begin(MPU_SDA, MPU_SCL);
-  Wire1.setClock(400000); // 设置I2C频率为400kHz
-  // 初始化MPU6050
+  Wire1.setClock(400000); // Set I2C frequency to 400kHz
+  // Initialize MPU6050
   if (!mpu.begin(0x68, &Wire1)) {
     Serial.println("Failed to find MPU6050 chip");
     while (1) {
@@ -497,10 +497,10 @@ void setup()
   
   Serial.println("MPU6050 Found!");
   
- mpu.setSampleRateDivisor(19); // 采样率 = 1kHz / (1 + 19) = 50Hz
+ mpu.setSampleRateDivisor(19); // Sample rate = 1kHz / (1 + 19) = 50Hz
 
-  // 设置低通滤波器
-  mpu.setFilterBandwidth(MPU6050_BAND_21_HZ); // 设置低通滤波器截止频率为21Hz
+  // Set low-pass filter
+  mpu.setFilterBandwidth(MPU6050_BAND_21_HZ); // Set low-pass filter cutoff frequency to 21Hz
 
   mpu.setAccelerometerRange(MPU6050_RANGE_8_G);
   mpu.setGyroRange(MPU6050_RANGE_500_DEG);
@@ -512,9 +512,9 @@ void setup()
   // init pwm controller
   init_Circle();
   // init encoder
-  ESP32Encoder::useInternalWeakPullResistors = UP; // 使用内部上拉电阻
-  encoder.attachHalfQuad(S1, S2);                  // 引脚2和3连接到编码器的A和B信号输出
-  encoder.clearCount();                            // 清除计数器
+  ESP32Encoder::useInternalWeakPullResistors = UP; // Use internal pull-up resistors
+  encoder.attachHalfQuad(S1, S2);                  // Pins 2 and 3 connect to the encoder's A and B signal outputs
+  encoder.clearCount();                            // Clear the counter
   Motorencoder1.attachHalfQuad(INA1, INA2);
   Motorencoder1.clearCount();
   Motorencoder2.attachHalfQuad(INB1, INB2);
@@ -530,8 +530,8 @@ void setup()
   myPID2.SetMode(AUTOMATIC);
   // init display
   u8g2.begin();
-  u8g2.clearBuffer();                 // 清除缓冲区
-  u8g2.setFont(u8g2_font_ncenB08_tr); // 设置字体
+  u8g2.clearBuffer();                 // Clear the buffer
+  u8g2.setFont(u8g2_font_ncenB08_tr); // Set font
   // wait
   delay(1001);
   // init thread
@@ -540,7 +540,7 @@ initializeThread(Display, display, 80);
 initializeThread(SCAN, KEY_ENCODER, 100);
 initializeThread(MOTOR_CONTROL, motor_control, 50);
 }
-// 多线程启动!
+// Multi-thread start!
 void loop()
 {
   controller.run();
